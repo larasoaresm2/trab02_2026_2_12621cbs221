@@ -73,7 +73,7 @@ docker compose up -d --build     # build the image and start the container in th
 docker compose ps                # after about a minute the status shows (healthy)
 ```
 
-The container is named `trab_02_12621CBS221`. The menu runs inside it and waits for input:
+The container is named `trab02_2026_2_12621cbs221` (S5_20 convention: `trab02_2026_2_MATRICULA`, lowercase). The menu runs inside it and waits for input:
 
 ```bash
 docker compose attach asset-inventory    # press Enter to show the menu
@@ -117,11 +117,11 @@ The course server is a virtual machine (KVM) provided by the university: Ubuntu 
 
 1. **SSH key instead of password.** A key pair was generated on the laptop (`ssh-keygen -t ed25519`), the public key was copied to the server (`ssh-copy-id`), and an alias in `~/.ssh/config` makes the connection `ssh ufu`. The default password was changed on the first login.
 2. **Docker without `sudo`.** The user was added to the `docker` group (`sudo usermod -aG docker $USER`). Members of this group can control the whole machine through Docker, so it is as sensitive as `sudo`; the user already had `sudo`, so no privilege was added.
-3. **Clone into a folder named after the student ID**, so that the Compose project, volume and network names are unique on a shared server:
+3. **Clone into a folder named with the project identifier** (`trab02_2026_2_MATRICULA`, as required by S5_20). The `name:` in `compose.yaml` keeps the Compose project, volume and network names unique on the shared server:
 
    ```bash
-   git clone https://github.com/larasoaresm2/Asset-Inventory.git ~/trab_02_12621CBS221
-   cd ~/trab_02_12621CBS221
+   git clone https://github.com/larasoaresm2/Asset-Inventory.git ~/trab02_2026_2_12621cbs221
+   cd ~/trab02_2026_2_12621cbs221
    docker compose up -d --build
    ```
 
@@ -129,6 +129,8 @@ The course server is a virtual machine (KVM) provided by the university: Ubuntu 
 5. **Firewall.** `ufw` is inactive on the server and was not changed, because it is shared. If it were enabled, only port 22 (SSH) would need to be open: the application does not listen on any port.
 
 ### 24-hour run
+
+This first run used the old container name `trab_02_12621CBS221`, before the S5_20 naming convention.
 
 The container started on 2026-11-05 at 23:59:41 UTC (20:59 in Brasília) and was checked on 2026-11-06 at 21:21 (Brasília):
 
@@ -152,7 +154,7 @@ To bring the application up again on the server (for example, on the day of the 
 
 ```bash
 ssh ufu
-cd ~/trab_02_12621CBS221
+cd ~/trab02_2026_2_12621cbs221
 git pull
 docker compose up -d --build
 ```
