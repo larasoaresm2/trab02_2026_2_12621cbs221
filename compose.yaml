@@ -1,8 +1,11 @@
+# S5_20: project identifier trab02_2026_2_MATRICULA (lowercase)
+name: trab02_2026_2_12621cbs221
+
 services:
   asset-inventory:
     build: .
-    image: asset-inventory
-    container_name: trab_02_12621CBS221
+    image: trab02_2026_2_12621cbs221
+    container_name: trab02_2026_2_12621cbs221
     # The menu waits for keyboard input: keep stdin open and give it a terminal (like docker run -it)
     stdin_open: true
     tty: true
