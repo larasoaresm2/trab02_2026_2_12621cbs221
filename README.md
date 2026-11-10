@@ -37,8 +37,8 @@ Second graded assignment (sprints 3, 4 and 5) for the Cybersecurity course — S
 Requirement: Python 3.10 or newer.
 
 ```bash
-git clone https://github.com/larasoaresm2/Asset-Inventory.git
-cd Asset-Inventory
+git clone https://github.com/larasoaresm2/trab02_2026_2_12621cbs221.git
+cd trab02_2026_2_12621cbs221
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -67,8 +67,8 @@ black --check .
 Requirement: Docker with the Compose plugin (Docker Desktop on macOS or Windows, Docker Engine on Linux).
 
 ```bash
-git clone https://github.com/larasoaresm2/Asset-Inventory.git
-cd Asset-Inventory
+git clone https://github.com/larasoaresm2/trab02_2026_2_12621cbs221.git
+cd trab02_2026_2_12621cbs221
 docker compose up -d --build     # build the image and start the container in the background
 docker compose ps                # after about a minute the status shows (healthy)
 ```
@@ -120,7 +120,7 @@ The course server is a virtual machine (KVM) provided by the university: Ubuntu 
 3. **Clone into a folder named with the project identifier** (`trab02_2026_2_MATRICULA`, as required by S5_20). The `name:` in `compose.yaml` keeps the Compose project, volume and network names unique on the shared server:
 
    ```bash
-   git clone https://github.com/larasoaresm2/Asset-Inventory.git ~/trab02_2026_2_12621cbs221
+   git clone https://github.com/larasoaresm2/trab02_2026_2_12621cbs221.git ~/trab02_2026_2_12621cbs221
    cd ~/trab02_2026_2_12621cbs221
    docker compose up -d --build
    ```
