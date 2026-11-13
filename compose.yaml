@@ -14,6 +14,11 @@ services:
     restart: unless-stopped
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    # S5_15: no privilege escalation and no Linux capabilities (the app needs none)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     # Rotate the screen output kept by Docker (docker compose logs)
     logging:
       driver: json-file
@@ -22,6 +27,37 @@ services:
         max-file: "3"
     volumes:
       - asset-data:/app/data
+
+  # Second service (S4_05): read-only HTTP API, same image, another command
+  api:
+    build: .
+    image: trab02_2026_2_12621cbs221
+    container_name: trab02_2026_2_12621cbs221_api
+    command: ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--access-logfile", "-", "asset_inventory.api:create_app()"]
+    # S5_20: external port 2000 + 221 (last digits of the student ID) -> internal 8000
+    ports:
+      - "2221:8000"
+    depends_on:
+      - asset-inventory
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Healthy = /health answers (it loads the data on every call)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 1m
+      timeout: 10s
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "1m"
+        max-file: "3"
+    # :ro = read-only: the API reads the menu's files but can never change them
+    volumes:
+      - asset-data:/app/data:ro
 
 volumes:
   asset-data:
