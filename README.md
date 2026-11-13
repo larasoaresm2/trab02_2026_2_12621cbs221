@@ -1,6 +1,6 @@
 # Asset Inventory
 
-An IT asset inventory manager written in Python, using object-oriented programming. It tracks equipments and vulnerabilities through a terminal menu, links each vulnerability to the equipments it affects, and estimates the risk of each equipment with a linear-algebra model.
+An IT asset inventory manager written in Python, using object-oriented programming. It tracks equipments and vulnerabilities through a terminal menu, links each vulnerability to the equipments it affects, and estimates the risk of each equipment with a linear-algebra model. A read-only HTTP API serves the same data to other programs.
 
 Second graded assignment (sprints 3, 4 and 5) for the Cybersecurity course — School of Electrical Engineering, UFU, 2026/2. The first assignment is preserved in the tag [`trabalho-1`](../../tree/trabalho-1).
 
@@ -12,6 +12,17 @@ Second graded assignment (sprints 3, 4 and 5) for the Cybersecurity course — S
 | 2 | Data stored as a JSON array of objects | 20% | Done |
 | 3 | Application running in a Docker container for 24 hours | 45% | Done: ran for 24 hours on the course server (see [Deployment](#deployment-on-the-course-server)) |
 | 4 | Effective risk of each equipment computed with a linear model | 15% | Done |
+
+### Requirement → code
+
+| Requirement | Code | Tests |
+| --- | --- | --- |
+| 1. Equipment class hierarchy | `asset_inventory/equipment.py` (`Equipment` and 5 subclasses, polymorphic `exposure_factor()`), `vulnerability.py`, `inventory.py` | `tests/test_models.py`, `tests/test_inventory.py` |
+| 2. JSON array of objects | `asset_inventory/storage.py` (`JsonStorage`), `to_dict()` / `*_from_dict()` in each model, `data/*.json` | `tests/test_storage.py` |
+| 3. Container running for 24 hours | `Dockerfile`, `.dockerignore`, `compose.yaml` (`restart: unless-stopped`, volume, healthchecks), `asset_inventory/log_config.py` | Evidence in [24-hour runs](#24-hour-runs) and [`docs/evidence/`](docs/evidence/) |
+| 4. Effective risk with a linear model | `asset_inventory/risk.py` (`RiskAnalysis`: `b = F·M·v`, `(I − A)·x = b`), `dependency.py` | `tests/test_risk.py`, [validation by hand](#validation-by-hand) |
+| Course cards S4_05, S4_17, S5_03 (API) | `asset_inventory/api.py`, second service `api` in `compose.yaml` | `tests/test_api.py` |
+| Course card S5_20 (naming and ports) | `name:`, `image`, `container_name` and `ports: "2221:8000"` in `compose.yaml` | Deployment evidence below |
 
 ## Features
 
@@ -31,6 +42,7 @@ Second graded assignment (sprints 3, 4 and 5) for the Cybersecurity course — S
 - **Persistence:** everything is saved to JSON files after each successful change and loaded again when the program starts
 - **Menu organized in submenus:** Equipments, Vulnerabilities, Links, Dependencies and Risk report
 - **Logging:** every operation is recorded in `data/app.log` with time, level and origin
+- **HTTP API (read-only):** equipments, vulnerabilities and the risk report as JSON, for other programs and the web interface (see [HTTP API](#http-api))
 
 ## How to run
 
@@ -53,6 +65,12 @@ cp examples/*.json data/
 python3 main.py        # option 16 shows x = [8.98, 14.8, 7.45]
 ```
 
+To try the API locally with the example data (then open http://127.0.0.1:5000/v1/risk):
+
+```bash
+flask --app "asset_inventory.api:create_app('examples')" run
+```
+
 To run the tests and the style checks (the same ones the GitHub Actions workflow runs on every push):
 
 ```bash
@@ -69,11 +87,30 @@ Requirement: Docker with the Compose plugin (Docker Desktop on macOS or Windows,
 ```bash
 git clone https://github.com/larasoaresm2/trab02_2026_2_12621cbs221.git
 cd trab02_2026_2_12621cbs221
-docker compose up -d --build     # build the image and start the container in the background
-docker compose ps                # after about a minute the status shows (healthy)
+docker compose up -d --build     # build the image and start both containers in the background
+docker compose ps                # after about a minute both show (healthy)
 ```
 
-The container is named `trab02_2026_2_12621cbs221` (S5_20 convention: `trab02_2026_2_MATRICULA`, lowercase). The menu runs inside it and waits for input:
+Two containers are started from the same image (S5_20 convention for names: `trab02_2026_2_MATRICULA`, lowercase):
+
+| Service | Container | What runs | Port |
+| --- | --- | --- | --- |
+| `asset-inventory` | `trab02_2026_2_12621cbs221` | The interactive menu (`python main.py`), the only writer of the data | none (terminal only) |
+| `api` | `trab02_2026_2_12621cbs221_api` | The read-only HTTP API (Gunicorn with 2 workers) | `2221` → `8000` |
+
+```
+                    ┌───────────────────────────────────┐
+ terminal (attach) ─► asset-inventory: menu             │──writes──┐
+                    └───────────────────────────────────┘          ▼
+                                                        [ volume asset-data: JSON + app.log ]
+                    ┌───────────────────────────────────┐          │
+ HTTP :2221 ────────► api: Gunicorn + Flask (port 8000) │◄─reads───┘ (mounted read-only)
+                    └───────────────────────────────────┘
+```
+
+The external port follows the course rule: 2000 + the last three digits of the student ID (221) = **2221**. The menu container publishes no port, because it works only through the terminal.
+
+The menu runs inside its container and waits for input:
 
 ```bash
 docker compose attach asset-inventory    # press Enter to show the menu
@@ -84,7 +121,9 @@ To leave the menu **without stopping the program**, press `Ctrl+P` and then `Ctr
 | Task | Command |
 | --- | --- |
 | See the application log | `docker compose exec asset-inventory tail -n 20 data/app.log` |
-| See what the menu printed | `docker compose logs --tail 20` |
+| See what the menu printed | `docker compose logs --tail 20 asset-inventory` |
+| See the API requests | `docker compose logs --tail 20 api` |
+| Call the API | `curl http://localhost:2221/v1/risk` |
 | Update after a `git pull` | `docker compose up -d --build` |
 | Stop on purpose | `docker compose stop` |
 | Remove the container (data is kept) | `docker compose down` |
@@ -106,8 +145,49 @@ To leave the menu **without stopping the program**, press `Ctrl+P` and then `Ctr
 | `restart: unless-stopped` | `compose.yaml` | If the program ends or the server reboots, Docker starts it again, unless someone stopped it on purpose |
 | Docker log rotation (3 × 1 MB) | `compose.yaml` | The screen output kept by Docker never fills the disk |
 | `LOG_LEVEL` variable | `compose.yaml` | Log level set from the environment or a `.env` file (default `INFO`) |
+| One image, two services | `compose.yaml` | The API reuses the same code; only the `command` changes |
+| Gunicorn instead of `flask run` | `compose.yaml`, `requirements.txt` | Production WSGI server: several workers, restarted if they hang. Flask's own server is for development only |
+| `ports: "2221:8000"` | `compose.yaml` | Course rule for the external port; Gunicorn listens on `0.0.0.0:8000` inside the container |
+| API volume mounted `:ro` | `compose.yaml` | Least privilege: even an exploited API cannot change the data (`touch` fails with *Read-only file system*) |
+| `no-new-privileges` | `compose.yaml` | No process in the containers can gain more privileges than it started with (for example through a `setuid` program) |
+| `cap_drop: ALL` | `compose.yaml` | Removes every Linux capability; the application needs none |
+| API healthcheck on `/health` | `compose.yaml` | The API is `healthy` only if it answers HTTP and can load the data |
 
-Tested locally: the container stays `healthy`; choosing *Exit* in the menu makes Docker restart it (`RestartCount` 1); after `docker compose down` and `up`, the registered equipments are still there.
+Tested locally: both containers stay `healthy`; choosing *Exit* in the menu makes Docker restart it (`RestartCount` 1); after `docker compose down` and `up`, the registered equipments are still there; the API answers on port 2221 and cannot write to the volume.
+
+## HTTP API
+
+Read-only API (`asset_inventory/api.py`, Flask), served by Gunicorn in the `api` container on port **2221**. Only `GET` is accepted; any other method answers `405`.
+
+| Method and path | Answer |
+| --- | --- |
+| `GET /health` | `{"status": "ok"}` if the data loads; used by the Docker healthcheck |
+| `GET /v1/equipments` | All equipments, in the same format as `equipments.json` |
+| `GET /v1/equipments/<id>` | One equipment |
+| `GET /v1/vulnerabilities` | All vulnerabilities |
+| `GET /v1/risk` | Own and effective risk of every equipment, highest first |
+
+```bash
+$ curl http://localhost:2221/v1/risk
+[{"effective_risk":14.8,"id":2,"name":"E2","own_risk":14.8},{"effective_risk":8.98,"id":1,"name":"E1","own_risk":7.5},{"effective_risk":7.45,"id":3,"name":"E3","own_risk":0.0}]
+```
+
+- **Versioned paths** (`/v1/`): a future incompatible change becomes `/v2/` without breaking existing clients. `/health` is infrastructure and has no version
+- **Errors in the Problem Details format** (RFC 9457, `application/problem+json`), never with internal details such as stack traces:
+
+  | Status | When |
+  | --- | --- |
+  | `404` | Unknown equipment or URL |
+  | `422` | The risk cannot be computed (no equipments, or `I − A` ill-conditioned) |
+  | `503` | A data file is broken |
+
+  ```json
+  {"type": "about:blank", "title": "Not Found", "status": 404, "detail": "Equipment 99 not found."}
+  ```
+
+- **Always current:** the files are read again on every request, so a change made in the menu appears in the next API call
+- **Same rules as the menu:** the API loads the data through `JsonStorage` and `Inventory`, so it uses exactly the same validation and the same `RiskAnalysis`
+- **Tests:** `tests/test_api.py` uses Flask's test client with a temporary data folder (no real server needed)
 
 ## Deployment on the course server
 
@@ -126,9 +206,12 @@ The course server is a virtual machine (KVM) provided by the university: Ubuntu 
    ```
 
 4. **Restart test without disturbing other users.** Rebooting the server or changing its firewall would affect the whole class, so only this container was restarted (`docker compose restart`). Surviving a server reboot is guaranteed by Docker being enabled at boot and by `restart: unless-stopped`.
-5. **Firewall.** `ufw` is inactive on the server and was not changed, because it is shared. If it were enabled, only port 22 (SSH) would need to be open: the application does not listen on any port.
+5. **Firewall.** `ufw` is inactive on the server and was not changed, because it is shared. If it were enabled, only port 22 (SSH) and the API port 2221 would need to be open. Ports published by Docker are opened through Docker's own `iptables` rules, which `ufw` does not control, so the published port must be chosen with care.
+6. **Migration to the S5_20 names (2026-11-13).** The old project was stopped in its own folder (`docker compose down`, keeping the volume), the repository was cloned into `~/trab02_2026_2_12621cbs221`, the containers were created without starting (`docker compose up --build --no-start`), the data was copied from the old volume to the new one with a temporary container (`cp -a`), the example scenario was loaded, and both services were started. The old volume is kept as a backup. Volumes of other students on the shared server were not touched.
 
-### 24-hour run
+### 24-hour runs
+
+#### First run (menu only, old name)
 
 This first run used the old container name `trab_02_12621CBS221`, before the S5_20 naming convention.
 
@@ -149,6 +232,43 @@ $ docker compose exec asset-inventory grep -c "Application started" data/app.log
 - **Up 24 hours (healthy)** with **0 restarts**: the program ran without interruption and the data loaded correctly at every health check
 - The two starts in the log are the first `up` and the manual restart test, both before the 24 hours began
 - The complete log of the run is in [`docs/evidence/app-24h.log`](docs/evidence/app-24h.log)
+
+**Unplanned reboot test.** The university restarted the server on 2026-11-09 at 19:35:25 (Brasília), as shown by `uptime -s`. The application log shows the program starting again one minute later, with no one logged in:
+
+```
+$ ssh ufu uptime -s
+2026-11-09 19:35:25
+
+2026-11-09T22:36:13Z INFO main: Application started      # 19:36:13 in Brasília
+```
+
+Docker is enabled at boot and the service has `restart: unless-stopped`, so the application came back by itself.
+
+#### Second run (S5_20 names, menu and API)
+
+Both containers started on 2026-11-13 at 23:00:02 UTC (20:00 in Brasília), with the example scenario loaded:
+
+```
+$ docker inspect --format "{{.Name}} {{.State.StartedAt}} restarts={{.RestartCount}}" trab02_2026_2_12621cbs221 trab02_2026_2_12621cbs221_api
+/trab02_2026_2_12621cbs221 2026-11-13T23:00:02.092565445Z restarts=0
+/trab02_2026_2_12621cbs221_api 2026-11-13T23:00:02.408150196Z restarts=0
+
+$ curl http://localhost:2221/v1/risk
+[{"effective_risk":14.8,"id":2,"name":"E2","own_risk":14.8},{"effective_risk":8.98,"id":1,"name":"E1","own_risk":7.5},{"effective_risk":7.45,"id":3,"name":"E3","own_risk":0.0}]
+```
+
+The API also answers from another machine on the university network:
+
+```
+$ curl -i http://<server>:2221/health
+HTTP/1.1 200 OK
+Server: gunicorn
+Content-Type: application/json
+
+{"status":"ok"}
+```
+
+**24-hour check:** to be added after 2026-11-14 20:00 (Brasília).
 
 To bring the application up again on the server (for example, on the day of the presentation):
 
@@ -221,6 +341,7 @@ Inventory ── has many ──> Equipment, Vulnerability, Dependency
 RiskAnalysis ── reads ──> Inventory
 JsonStorage ── saves and loads ──> Inventory
 Menu ── uses ──> Inventory, RiskAnalysis, JsonStorage
+api (Flask) ── uses ──> Inventory, RiskAnalysis, JsonStorage (read only)
 ```
 
 | Class | File | Responsibility |
@@ -235,6 +356,7 @@ Menu ── uses ──> Inventory, RiskAnalysis, JsonStorage
 | `JsonStorage` | `asset_inventory/storage.py` | Saves the inventory to JSON files and loads it back through the `Inventory` rules (Repository pattern) |
 | — | `asset_inventory/helpers.py` | Input functions: `read_text()`, `read_int()`, `read_float()`, `choose_from_list()`, `ask_yes_no()` |
 | — | `asset_inventory/log_config.py` | `setup_logging()`: rotating log file in `data/app.log` |
+| — | `asset_inventory/api.py` | `create_app()`: read-only HTTP API (Flask) over the same `Inventory` and `RiskAnalysis` |
 | — | `main.py` | Entry point: sets up logging, loads the data, then creates the `Menu` |
 
 ### Object-oriented concepts used
@@ -310,6 +432,10 @@ Each stage is developed in its own branch and merged into `main` through a pull 
 | `feat/json-storage` | JSON persistence: `to_dict`/`from_dict`, `JsonStorage`, example files and storage tests |
 | `refactor/menu-submenus` | Main menu with submenus and one generic menu loop |
 | `feat/docker` | Dockerfile, `.dockerignore`, `compose.yaml`, pinned dependencies and logging |
+| `docs/readme-trabalho-2` | Deployment on the course server and evidence of the first 24-hour run |
+| `chore/naming-convention`, `docs/repo-rename` | S5_20 naming convention for the Compose project, container, image and repository |
+| `feat/http-service` | Read-only HTTP API, second Compose service with Gunicorn on port 2221, container hardening |
+| `docs/readme-final` | Requirement → code table, API documentation and second 24-hour run |
 
 Sprint 3 study exercises are in the [sprint3](https://github.com/larasoaresm2/sprint3) repository.
 
