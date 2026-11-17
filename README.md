@@ -78,6 +78,7 @@ pip install -r requirements-dev.txt
 pytest
 flake8 .
 black --check .
+pip-audit -r requirements.txt    # known vulnerabilities in the dependencies
 ```
 
 ## Run with Docker
@@ -135,6 +136,7 @@ To leave the menu **without stopping the program**, press `Ctrl+P` and then `Ctr
 | Decision | Where | Why |
 | --- | --- | --- |
 | `python:3.12-slim` base image | `Dockerfile` | Smaller image and fewer installed programs, so less attack surface |
+| `apt-get upgrade` at build time | `Dockerfile` | Installs Debian security patches that the base image does not have yet (see [Security checks](#security-checks)) |
 | `requirements.txt` copied and installed before the code | `Dockerfile` | Layer cache: changing the code does not reinstall NumPy |
 | NumPy version pinned | `requirements.txt` | Every build, here or on the server, gets the same library |
 | Runs as `appuser`, not `root` | `Dockerfile` | Least privilege: the container shares the host kernel, so an exploited program must not be root |
@@ -188,6 +190,42 @@ $ curl http://localhost:2221/v1/risk
 - **Always current:** the files are read again on every request, so a change made in the menu appears in the next API call
 - **Same rules as the menu:** the API loads the data through `JsonStorage` and `Inventory`, so it uses exactly the same validation and the same `RiskAnalysis`
 - **Tests:** `tests/test_api.py` uses Flask's test client with a temporary data folder (no real server needed)
+
+## Security checks
+
+Two scans look for **known vulnerabilities** in what the application depends on (OWASP Top 10: *vulnerable and outdated components*).
+
+### Python dependencies: `pip-audit` (S5_02)
+
+`pip-audit -r requirements.txt` checks NumPy, Flask, Gunicorn and all their indirect dependencies against public vulnerability databases.
+
+- Result on 2026-11-17: **No known vulnerabilities found**
+- It also runs in the GitHub Actions workflow on every push, so a vulnerability published later for a pinned version turns the CI red even without any code change
+
+### Container image: Docker Scout (S5_15)
+
+`docker scout quickview` and `docker scout cves` analyze every package inside the image, including the Debian system inside `python:3.12-slim`. All findings came from the base image, none from the application.
+
+| Scan | Critical | High | Medium | Low | Policies met | Health score |
+| --- | --- | --- | --- | --- | --- | --- |
+| Before | 0 | 7 | 8 | 28 | 3 of 7 | D (44%) |
+| After `apt-get upgrade` and `build --pull` | 0 | **4** | 8 | 27 | 4 of 7 | C (67%) |
+
+| Package | High | Fix available | Decision |
+| --- | --- | --- | --- |
+| `zlib` | 2 | Yes (`1:1.3.dfsg+really1.3.1-1+deb13u1`) | **Fixed** by `apt-get upgrade` in the Dockerfile |
+| `apt` | 1 | Yes (`3.0.4`) | **Fixed** by `apt-get upgrade` in the Dockerfile |
+| `openssl` | 4 | No (*not fixed* by Debian yet) | **Risk accepted**, reviewed again on the next build |
+
+**Why the `openssl` risk is accepted.** No component inside the containers uses TLS: the API serves plain HTTP on the internal port and the healthchecks call `http://127.0.0.1`. When HTTPS is added (course card S5_11), it will be terminated by a reverse proxy in front of the API, which is updated separately. Rebuilding with `docker compose build --pull` picks up the Debian fix as soon as it is published.
+
+The image now has fewer high vulnerabilities (4) than its own base image (6), because the patches are applied at build time.
+
+**Remaining policy warnings (not vulnerabilities):**
+
+- *Copyleft licensed packages:* GPL licenses of Debian packages; relevant when distributing software commercially, not a security issue
+- *Supply chain attestations missing:* the image has no signed SBOM (list of its contents) yet; registered as technical debt
+- *Outdated base image:* reported even after `--pull`, while the scan already shows the new base image's numbers
 
 ## Deployment on the course server
 
@@ -449,6 +487,7 @@ Each stage is developed in its own branch and merged into `main` through a pull 
 | `chore/naming-convention`, `docs/repo-rename` | S5_20 naming convention for the Compose project, container, image and repository |
 | `feat/http-service` | Read-only HTTP API, second Compose service with Gunicorn on port 2221, container hardening |
 | `docs/readme-final` | Requirement → code table, API documentation and second 24-hour run |
+| `chore/security-checks` | `pip-audit` in the CI, Debian patches in the Dockerfile and the security scan results |
 
 Sprint 3 study exercises are in the [sprint3](https://github.com/larasoaresm2/sprint3) repository.
 
