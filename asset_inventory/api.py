@@ -34,6 +34,11 @@ def create_app(folder="data"):
     def not_found(error):
         return problem(404, "Not Found", "The requested URL does not exist.")
 
+    @app.get("/")
+    def index():
+        # The web page: a static file that reads the data from this same API
+        return app.send_static_file("index.html")
+
     @app.get("/health")
     def health():
         load_inventory()

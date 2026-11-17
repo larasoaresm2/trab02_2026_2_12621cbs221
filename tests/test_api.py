@@ -82,3 +82,10 @@ def test_broken_file_gives_503(folder, client):
     (folder / "equipments.json").write_text("{not json")
     response = client.get("/health")
     assert response.status_code == 503
+
+
+def test_index_serves_the_web_page(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.content_type.startswith("text/html")
+    assert b'fetch("/v1/equipments")' in response.data

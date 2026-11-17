@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Asset Inventory</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; color: #1f2328; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid #d0d7de; padding: 0.5rem; text-align: left; }
+    th { background: #f6f8fa; }
+  </style>
+</head>
+<body>
+  <h1>Asset Inventory</h1>
+
+  <h2>Equipments</h2>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Name</th><th>Type</th><th>Location</th><th>Vulnerabilities</th></tr>
+    </thead>
+    <tbody id="equipments"></tbody>
+  </table>
+
+  <script>
+    // Add one table row; textContent shows the data as plain text, never as HTML (prevents XSS)
+    function addRow(tbody, values) {
+      const row = tbody.insertRow();
+      for (const value of values) {
+        row.insertCell().textContent = value;
+      }
+    }
+
+    async function loadEquipments() {
+      const response = await fetch("/v1/equipments");
+      const equipments = await response.json();
+      const tbody = document.getElementById("equipments");
+      for (const e of equipments) {
+        addRow(tbody, [e.id, e.name, e.type, e.location, e.vulnerability_ids.join(", ")]);
+      }
+    }
+
+    loadEquipments();
+  </script>
+</body>
+</html>
