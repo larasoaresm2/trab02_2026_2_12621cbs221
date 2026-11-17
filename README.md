@@ -268,7 +268,20 @@ Content-Type: application/json
 {"status":"ok"}
 ```
 
-**24-hour check:** to be added after 2026-11-14 20:00 (Brasília).
+**24-hour check** on 2026-11-17 (Brasília), four days after the start:
+
+```
+$ docker compose ps
+NAME                            IMAGE                       COMMAND                  SERVICE           CREATED      STATUS                PORTS
+trab02_2026_2_12621cbs221       trab02_2026_2_12621cbs221   "python main.py"         asset-inventory   4 days ago   Up 4 days (healthy)
+trab02_2026_2_12621cbs221_api   trab02_2026_2_12621cbs221   "gunicorn --bind 0.0…"   api               4 days ago   Up 4 days (healthy)   0.0.0.0:2221->8000/tcp
+
+$ docker inspect --format "{{.Name}} {{.State.StartedAt}} restarts={{.RestartCount}}" trab02_2026_2_12621cbs221 trab02_2026_2_12621cbs221_api
+/trab02_2026_2_12621cbs221 2026-11-13T23:00:02.092565445Z restarts=0
+/trab02_2026_2_12621cbs221_api 2026-11-13T23:00:02.408150196Z restarts=0
+```
+
+- **Up 4 days (healthy)** for both containers, with the same start time and **0 restarts**: the menu and the API ran without interruption for more than 24 hours, and every health check passed (the menu's data loaded and the API answered `/health`)
 
 To bring the application up again on the server (for example, on the day of the presentation):
 
