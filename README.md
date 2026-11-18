@@ -22,6 +22,7 @@ Second graded assignment (sprints 3, 4 and 5) for the Cybersecurity course — S
 | 3. Container running for 24 hours | `Dockerfile`, `.dockerignore`, `compose.yaml` (`restart: unless-stopped`, volume, healthchecks), `asset_inventory/log_config.py` | Evidence in [24-hour runs](#24-hour-runs) and [`docs/evidence/`](docs/evidence/) |
 | 4. Effective risk with a linear model | `asset_inventory/risk.py` (`RiskAnalysis`: `b = F·M·v`, `(I − A)·x = b`), `dependency.py` | `tests/test_risk.py`, [validation by hand](#validation-by-hand) |
 | Course cards S4_05, S4_17, S5_03 (API) | `asset_inventory/api.py`, second service `api` in `compose.yaml` | `tests/test_api.py` |
+| Web interface (extra) | `asset_inventory/static/` (`index.html`, `app.js`, `style.css`), route `/` and security headers in `api.py` | `tests/test_api.py` |
 | Course card S5_20 (naming and ports) | `name:`, `image`, `container_name` and `ports: "2221:8000"` in `compose.yaml` | Deployment evidence below |
 
 ## Features
@@ -43,6 +44,7 @@ Second graded assignment (sprints 3, 4 and 5) for the Cybersecurity course — S
 - **Menu organized in submenus:** Equipments, Vulnerabilities, Links, Dependencies and Risk report
 - **Logging:** every operation is recorded in `data/app.log` with time, level and origin
 - **HTTP API (read-only):** equipments, vulnerabilities and the risk report as JSON, for other programs and the web interface (see [HTTP API](#http-api))
+- **Web interface (read-only):** a page with the risk report, the equipments and the vulnerabilities, served by the API (see [Web interface](#web-interface))
 
 ## How to run
 
@@ -65,7 +67,7 @@ cp examples/*.json data/
 python3 main.py        # option 16 shows x = [8.98, 14.8, 7.45]
 ```
 
-To try the API locally with the example data (then open http://127.0.0.1:5000/v1/risk):
+To try the API and the web interface locally with the example data (then open http://127.0.0.1:5000/ for the page or http://127.0.0.1:5000/v1/risk for the JSON):
 
 ```bash
 flask --app "asset_inventory.api:create_app('examples')" run
@@ -125,6 +127,7 @@ To leave the menu **without stopping the program**, press `Ctrl+P` and then `Ctr
 | See what the menu printed | `docker compose logs --tail 20 asset-inventory` |
 | See the API requests | `docker compose logs --tail 20 api` |
 | Call the API | `curl http://localhost:2221/v1/risk` |
+| Open the web interface | http://localhost:2221/ in the browser |
 | Update after a `git pull` | `docker compose up -d --build` |
 | Stop on purpose | `docker compose stop` |
 | Remove the container (data is kept) | `docker compose down` |
@@ -190,6 +193,32 @@ $ curl http://localhost:2221/v1/risk
 - **Always current:** the files are read again on every request, so a change made in the menu appears in the next API call
 - **Same rules as the menu:** the API loads the data through `JsonStorage` and `Inventory`, so it uses exactly the same validation and the same `RiskAnalysis`
 - **Tests:** `tests/test_api.py` uses Flask's test client with a temporary data folder (no real server needed)
+
+## Web interface
+
+A read-only page served by the API itself at `/` (http://localhost:2221/ with Docker), so the page and the API share the same address and port.
+
+![Web interface with the example scenario](docs/web-ui.png)
+
+- **Summary:** number of equipments, active vulnerabilities (OPEN or IN_PROGRESS) and the highest effective risk
+- **Risk report:** own and effective risk of each equipment, highest first, with a bar relative to the highest
+- **Equipments and vulnerabilities:** CVSS colored by the CVSS v3 severity bands (low < 4, medium < 7, high < 9, critical)
+- **Errors shown on the page:** if the API does not answer, or answers with a Problem Details error (for example `422` when there are no equipments), the message appears in place of the data
+- **Refresh button:** loads the data again; changes made in the menu appear without restarting anything
+- **Layout with CSS Grid:** the cards rearrange to the screen width, tables scroll sideways on phones, and a dark version follows the system setting
+
+| File | Content |
+| --- | --- |
+| `asset_inventory/static/index.html` | Page structure, with no inline code |
+| `asset_inventory/static/app.js` | Calls the API with `fetch` and fills the tables |
+| `asset_inventory/static/style.css` | Layout and colors |
+
+### Browser protections
+
+- **No XSS:** the data goes into the page with `textContent`, so it is always shown as text. An equipment named `<img src=x onerror=alert(1)>` appears with those characters on the page and no script runs (tested)
+- **Content Security Policy** on every answer (`default-src 'self'`): the browser runs only scripts and styles loaded from this server, so even injected HTML could not run code. This is why the JavaScript and the CSS are in separate files instead of inside the HTML
+- **`frame-ancestors 'none'`:** the page cannot be shown inside another site's frame (clickjacking)
+- **`X-Content-Type-Options: nosniff`** and **`Referrer-Policy: no-referrer`:** the browser trusts the declared file types and does not send the page address to other sites
 
 ## Security checks
 
@@ -407,7 +436,8 @@ api (Flask) ── uses ──> Inventory, RiskAnalysis, JsonStorage (read only)
 | `JsonStorage` | `asset_inventory/storage.py` | Saves the inventory to JSON files and loads it back through the `Inventory` rules (Repository pattern) |
 | — | `asset_inventory/helpers.py` | Input functions: `read_text()`, `read_int()`, `read_float()`, `choose_from_list()`, `ask_yes_no()` |
 | — | `asset_inventory/log_config.py` | `setup_logging()`: rotating log file in `data/app.log` |
-| — | `asset_inventory/api.py` | `create_app()`: read-only HTTP API (Flask) over the same `Inventory` and `RiskAnalysis` |
+| — | `asset_inventory/api.py` | `create_app()`: read-only HTTP API (Flask) over the same `Inventory` and `RiskAnalysis`, the web page at `/` and the security headers |
+| — | `asset_inventory/static/` | Web interface: `index.html`, `app.js` and `style.css` |
 | — | `main.py` | Entry point: sets up logging, loads the data, then creates the `Menu` |
 
 ### Object-oriented concepts used
@@ -488,6 +518,7 @@ Each stage is developed in its own branch and merged into `main` through a pull 
 | `feat/http-service` | Read-only HTTP API, second Compose service with Gunicorn on port 2221, container hardening |
 | `docs/readme-final` | Requirement → code table, API documentation and second 24-hour run |
 | `chore/security-checks` | `pip-audit` in the CI, Debian patches in the Dockerfile and the security scan results |
+| `feat/web-ui` | Read-only web interface served by the API, with security headers |
 
 Sprint 3 study exercises are in the [sprint3](https://github.com/larasoaresm2/sprint3) repository.
 

@@ -26,6 +26,16 @@ def create_app(folder="data"):
         storage.load(inventory)
         return inventory
 
+    @app.after_request
+    def security_headers(response):
+        # Browser protections: load scripts and styles only from this server, never inside a frame
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+        )
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
     @app.errorhandler(ValueError)
     def data_unavailable(error):
         return problem(503, "Data unavailable", str(error))
@@ -33,6 +43,11 @@ def create_app(folder="data"):
     @app.errorhandler(404)
     def not_found(error):
         return problem(404, "Not Found", "The requested URL does not exist.")
+
+    @app.get("/")
+    def index():
+        # The web page: a static file that reads the data from this same API
+        return app.send_static_file("index.html")
 
     @app.get("/health")
     def health():

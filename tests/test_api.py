@@ -82,3 +82,21 @@ def test_broken_file_gives_503(folder, client):
     (folder / "equipments.json").write_text("{not json")
     response = client.get("/health")
     assert response.status_code == 503
+
+
+def test_index_serves_the_web_page(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.content_type.startswith("text/html")
+    assert b'src="/static/app.js"' in response.data
+
+
+def test_static_files_are_served(client):
+    assert client.get("/static/app.js").status_code == 200
+    assert client.get("/static/style.css").status_code == 200
+
+
+def test_security_headers(client):
+    response = client.get("/")
+    assert "default-src 'self'" in response.headers["Content-Security-Policy"]
+    assert response.headers["X-Content-Type-Options"] == "nosniff"

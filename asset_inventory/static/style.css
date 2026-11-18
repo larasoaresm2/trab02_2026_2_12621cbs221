@@ -1,0 +1,78 @@
+/* Colors in one place, with a dark version when the system uses dark mode */
+:root {
+  --bg: #f6f8fa;
+  --card: #ffffff;
+  --text: #1f2328;
+  --muted: #59636e;
+  --line: #d0d7de;
+  --accent: #0969da;
+  --error-bg: #ffebe9;
+  --error: #a40e26;
+  --low: #1a7f37;
+  --medium: #9a6700;
+  --high: #bc4c00;
+  --critical: #a40e26;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --text: #e6edf3;
+    --muted: #9198a1;
+    --line: #30363d;
+    --accent: #4493f8;
+    --error-bg: #3c1618;
+    --error: #ff7b72;
+    --low: #3fb950;
+    --medium: #d29922;
+    --high: #f0883e;
+    --critical: #ff7b72;
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; padding: 1.5rem; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; line-height: 1.5; }
+h1, h2 { margin: 0; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.1rem; }
+.muted { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0 0; }
+
+/* Header: title on the left, refresh button on the right (wraps on narrow screens) */
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1rem; margin-bottom: 1rem; }
+.actions { display: flex; align-items: center; gap: 0.75rem; }
+button { font: inherit; padding: 0.4rem 0.9rem; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Error messages, hidden until the API fails */
+.message { margin: 0.75rem 0; padding: 0.6rem 0.8rem; border-radius: 6px; background: var(--error-bg); color: var(--error); }
+.message[hidden] { display: none; }
+
+/* CSS Grid: summary numbers in a row, cards in columns that fit the screen width */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 0.75rem 1rem; display: grid; }
+.stat .label { color: var(--muted); font-size: 0.85rem; }
+.stat .value { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: 1rem; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; min-width: 0; }
+.card.wide { grid-column: 1 / -1; }
+
+/* Tables scroll sideways on small screens instead of breaking the page */
+.table-wrap { overflow-x: auto; margin-top: 0.75rem; }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th, td { border-bottom: 1px solid var(--line); padding: 0.45rem 0.5rem; text-align: left; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.empty { color: var(--muted); font-style: italic; }
+
+/* Severity of the CVSS score (bands of CVSS v3) */
+.sev { font-weight: 600; }
+.sev-none, .sev-low { color: var(--low); }
+.sev-medium { color: var(--medium); }
+.sev-high { color: var(--high); }
+.sev-critical { color: var(--critical); }
+
+/* Bar with the effective risk relative to the highest one */
+.bar-col { width: 35%; }
+.bar { margin-top: 0.45rem; height: 0.6rem; border-radius: 3px; background: var(--accent); min-width: 2px; }

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Asset Inventory</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Asset Inventory</h1>
+      <p class="muted">Read-only view of the inventory, served by the API</p>
+    </div>
+    <div class="actions">
+      <span class="muted" id="updated"></span>
+      <button type="button" id="refresh">Refresh</button>
+    </div>
+  </header>
+
+  <p class="message" id="api-error" role="alert" hidden></p>
+
+  <section class="stats" aria-label="Summary">
+    <div class="stat"><span class="label">Equipments</span><span class="value" id="stat-equipments">–</span></div>
+    <div class="stat"><span class="label">Active vulnerabilities</span><span class="value" id="stat-active">–</span></div>
+    <div class="stat"><span class="label">Highest effective risk</span><span class="value" id="stat-risk">–</span></div>
+  </section>
+
+  <main class="grid">
+    <section class="card wide" aria-labelledby="h-risk">
+      <h2 id="h-risk">Risk report</h2>
+      <p class="muted">Own risk b = F·M·v and effective risk x from (I − A)·x = b, highest first</p>
+      <p class="message" id="risk-message" hidden></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Equipment</th><th class="num">Own risk</th><th class="num">Effective risk</th><th class="bar-col">Relative to the highest</th></tr>
+          </thead>
+          <tbody id="risk"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-equipments">
+      <h2 id="h-equipments">Equipments</h2>
+      <p class="message" id="equipments-message" hidden></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Name</th><th>Type</th><th>Location</th><th>Vulnerabilities</th></tr>
+          </thead>
+          <tbody id="equipments"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-vulnerabilities">
+      <h2 id="h-vulnerabilities">Vulnerabilities</h2>
+      <p class="message" id="vulnerabilities-message" hidden></p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Description</th><th>Category</th><th class="num">CVSS</th><th>Status</th></tr>
+          </thead>
+          <tbody id="vulnerabilities"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
