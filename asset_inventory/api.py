@@ -26,6 +26,16 @@ def create_app(folder="data"):
         storage.load(inventory)
         return inventory
 
+    @app.after_request
+    def security_headers(response):
+        # Browser protections: load scripts and styles only from this server, never inside a frame
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+        )
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        return response
+
     @app.errorhandler(ValueError)
     def data_unavailable(error):
         return problem(503, "Data unavailable", str(error))
