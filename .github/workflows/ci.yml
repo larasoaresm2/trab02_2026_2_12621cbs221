@@ -16,6 +16,8 @@ jobs:
         run: flake8 .
       - name: Check formatting with black
         run: black --check .
+      - name: Check types with mypy
+        run: mypy asset_inventory main.py
       - name: Run tests
         run: pytest
       - name: Audit dependencies for known vulnerabilities
