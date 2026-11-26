@@ -4,3 +4,12 @@ testpaths = ["tests"]
 
 [tool.black]
 line-length = 100
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+
+# Domain classes are fully annotated: every function must declare its types
+[[tool.mypy.overrides]]
+module = ["asset_inventory.equipment", "asset_inventory.vulnerability", "asset_inventory.dependency", "asset_inventory.enums"]
+disallow_untyped_defs = true

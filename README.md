@@ -64,7 +64,7 @@ The data is saved in the `data/` folder (created on the first save and ignored b
 ```bash
 mkdir -p data
 cp examples/*.json data/
-python3 main.py        # option 16 shows x = [8.98, 14.8, 7.45]
+python3 main.py        # main menu option 5 (Risk report) shows x = [8.98, 14.8, 7.45]
 ```
 
 To try the API and the web interface locally with the example data (then open http://127.0.0.1:5000/ for the page or http://127.0.0.1:5000/v1/risk for the JSON):
@@ -81,6 +81,7 @@ pytest
 flake8 .
 black --check .
 pip-audit -r requirements.txt    # known vulnerabilities in the dependencies
+mypy asset_inventory main.py     # type check (domain classes are fully annotated)
 ```
 
 ## Run with Docker
@@ -253,7 +254,7 @@ The image now has fewer high vulnerabilities (4) than its own base image (6), be
 **Remaining policy warnings (not vulnerabilities):**
 
 - *Copyleft licensed packages:* GPL licenses of Debian packages; relevant when distributing software commercially, not a security issue
-- *Supply chain attestations missing:* the image has no signed SBOM (list of its contents) yet; registered as technical debt
+- *Supply chain attestations missing:* the image has no signed SBOM (list of its contents) yet
 - *Outdated base image:* reported even after `--pull`, while the scan already shows the new base image's numbers
 
 ## Deployment on the course server
@@ -502,7 +503,16 @@ Condition number of I - A: 1.728 (determinant: 1)
 
 ## Development
 
-Each stage is developed in its own branch and merged into `main` through a pull request.
+### Workflow
+
+A simplified Git Flow (GitHub Flow), suited to one developer:
+
+1. `main` always holds working code: every change arrives through a pull request, never by a direct commit.
+2. Each stage gets its own short-lived branch from `main`, named by its kind: `feat/` (new feature), `refactor/`, `test/`, `docs/`, `chore/` (configuration, tooling).
+3. The pull request runs the GitHub Actions workflow (flake8, black, mypy, pytest and pip-audit) and is merged only when it passes.
+4. Releases are marked with annotated tags following [Semantic Versioning](https://semver.org/) (`v1.0.0`) and described in [`CHANGELOG.md`](CHANGELOG.md).
+
+### Branches
 
 | Branch | Content |
 | --- | --- |
@@ -519,6 +529,16 @@ Each stage is developed in its own branch and merged into `main` through a pull 
 | `docs/readme-final` | Requirement → code table, API documentation and second 24-hour run |
 | `chore/security-checks` | `pip-audit` in the CI, Debian patches in the Dockerfile and the security scan results |
 | `feat/web-ui` | Read-only web interface served by the API, with security headers |
+| `chore/release-v1.0.0` | Type hints and `mypy`, `CHANGELOG.md`, workflow and known limitations |
+
+### Known limitations
+
+Both items are tracked as issues in the repository.
+
+| Limitation | Why it is acceptable today | Next step |
+| --- | --- | --- |
+| The API has no authentication | It is read-only and serves no sensitive data | API keys or JWT before any write route (course card S5_09) |
+| No TLS | No credentials travel; private network; read-only | Reverse proxy with TLS, together with authentication (S5_11) |
 
 Sprint 3 study exercises are in the [sprint3](https://github.com/larasoaresm2/sprint3) repository.
 
